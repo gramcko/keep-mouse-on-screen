@@ -1,6 +1,6 @@
 # Keep Mouse
 
-Keeps your touchscreen from moving the mouse cursor, clicking, stealing focus, or kicking your game out of fullscreen. Real touch input still works in apps that handle touch/pointer input.
+Keeps your touchscreen from moving the mouse cursor, clicking, stealing focus, or kicking your game. Real touch input still works in apps that handle touch/pointer input.
 
 ## How it works
 
@@ -72,9 +72,3 @@ Hotkeys: `Ctrl+Alt+T` toggles "Block touch as mouse", `Ctrl+Alt+S` toggles the s
 ## Debug
 
 Run `dist\TouchMonitor.exe --debug` and check `%LOCALAPPDATA%\TouchMonitor\debug.log`. It shows the `dwExtraInfo` tag of mouse events, what gets swallowed, and every focus/no-activate decision.
-
-## Building your own touchscreen app
-
-For the app to keep receiving touch while Touch Monitor blocks, it must handle pointer/touch input: WPF, WinUI/UWP, Electron, or Win32 with `WM_POINTER`. WinForms is mouse-message based and will not receive touch.
-
-For the game to never lose focus even without the "never activate" layer, your app can opt out of activation itself: set `WS_EX_NOACTIVATE` on its window, or return `MA_NOACTIVATE` from `WM_POINTERACTIVATE`. Input keeps flowing; only activation is skipped.
