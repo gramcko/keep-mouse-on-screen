@@ -12,8 +12,8 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyTitle("Touch Monitor")]
 [assembly: System.Reflection.AssemblyProduct("Touch Monitor")]
 [assembly: System.Reflection.AssemblyDescription("Blocks touch-generated mouse input so the cursor is never affected.")]
-[assembly: System.Reflection.AssemblyVersion("1.6.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.6.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.7.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.7.0.0")]
 
 namespace TouchMonitor
 {
@@ -1511,6 +1511,8 @@ namespace TouchMonitor
             itemStartup = new ToolStripMenuItem("Start with Windows", null, OnToggleStartup);
             itemStartup.Checked = false;
 
+            ToolStripMenuItem itemTouchMapping = new ToolStripMenuItem("Touch mapping (Tablet PC Settings)...", null, OnOpenTabletPcSettings);
+
             ToolStripMenuItem itemExit = new ToolStripMenuItem("Exit", null, OnExit);
 
             menu = new ContextMenuStrip();
@@ -1527,6 +1529,7 @@ namespace TouchMonitor
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(itemHotkey);
             menu.Items.Add(itemStartup);
+            menu.Items.Add(itemTouchMapping);
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add(itemExit);
 
@@ -1643,6 +1646,21 @@ namespace TouchMonitor
             }
             itemStartup.Checked = !installed;
             tray.ShowBalloonTip(3000, "Touch Monitor", itemStartup.Checked ? "Will start with Windows." : "Autostart disabled.", ToolTipIcon.Info);
+        }
+
+        private void OnOpenTabletPcSettings(object sender, EventArgs e)
+        {
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo("control.exe", "/name Microsoft.TabletPCSettings");
+                psi.UseShellExecute = true;
+                Process.Start(psi);
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write("Tablet PC Settings launch failed: " + ex.Message);
+                tray.ShowBalloonTip(3000, "Touch Monitor", "Could not open Tablet PC Settings.", ToolTipIcon.Warning);
+            }
         }
 
         private void OnHotkey(object sender, EventArgs e)

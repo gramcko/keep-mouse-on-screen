@@ -55,6 +55,7 @@ Tray icon menu:
 - **Shield touch screen in fullscreen apps** - while a fullscreen game is focused, touches on the touchscreen do nothing (nothing can be activated, game stays fullscreen)
 - **Allow app under cursor on touch screen** - hover the mouse over an app on the touchscreen and click this: that app keeps receiving touches even while the shield is active (use for your custom control app). While raised, the tool forces `WS_EX_NOACTIVATE` on it so it cannot steal focus, and restores its original style afterwards.
 - **Start with Windows** - register/remove the autostart task
+- **Touch mapping (Tablet PC Settings...)** - opens Windows' touch-display mapping dialog (Display tab > Setup... > touch the touchscreen), for when touch lands on the wrong monitor
 - **Exit** - restores original window styles and uninstalls the hooks
 
 Hotkeys: `Ctrl+Alt+T` toggles "Block touch as mouse", `Ctrl+Alt+S` toggles the shield. Double-clicking the tray icon toggles blocking.
