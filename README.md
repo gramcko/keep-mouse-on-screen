@@ -54,7 +54,7 @@ Tray icon menu:
 - **Touch screen windows never activate** - windows on the touchscreen can't steal focus at all
 - **Shield touch screen in fullscreen apps** - while a fullscreen game is focused, touches on the touchscreen do nothing (nothing can be activated, game stays fullscreen)
 - **Allow app under cursor on touch screen** - hover the mouse over an app on the touchscreen and click this: that app keeps receiving touches even while the shield is active (use for your custom control app). While raised, the tool forces `WS_EX_NOACTIVATE` on it so it cannot steal focus, and restores its original style afterwards.
-- **Start with Windows** - register/remove the autostart task
+- **Start with Windows** - registers/removes the autostart task (prompts for administrator approval the first time, needed so it also covers elevated apps)
 - **Touch mapping (Tablet PC Settings...)** - opens Windows' touch-display mapping dialog (Display tab > Setup... > touch the touchscreen), for when touch lands on the wrong monitor
 - **Exit** - restores original window styles and uninstalls the hooks
 

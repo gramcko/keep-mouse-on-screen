@@ -12,8 +12,8 @@ using Microsoft.Win32;
 [assembly: System.Reflection.AssemblyTitle("Touch Monitor")]
 [assembly: System.Reflection.AssemblyProduct("Touch Monitor")]
 [assembly: System.Reflection.AssemblyDescription("Blocks touch-generated mouse input so the cursor is never affected.")]
-[assembly: System.Reflection.AssemblyVersion("1.7.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.7.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.7.2.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.7.2.0")]
 
 namespace TouchMonitor
 {
@@ -1346,25 +1346,35 @@ namespace TouchMonitor
     {
         private const string TaskName = "TouchMonitor";
 
+        public static string LastError = "";
+
         public static bool IsInstalled()
         {
-            return Run("schtasks.exe", "/Query /TN \"" + TaskName + "\"") == 0;
+            return Run("schtasks.exe", "/Query /TN \"" + TaskName + "\"", false) == 0;
         }
 
         public static bool Install()
         {
+            LastError = "";
             string exe = Application.ExecutablePath;
             string user = Environment.UserDomainName + "\\" + Environment.UserName;
             string args = "/Create /F /SC ONLOGON /RL HIGHEST /IT /RU \"" + user + "\" /TN \"" + TaskName + "\" /TR \"\\\"" + exe + "\\\"\"";
-            return Run("schtasks.exe", args) == 0;
+            if (Run("schtasks.exe", args, true) != 0) return false;
+            if (!IsInstalled())
+            {
+                if (LastError.Length == 0) LastError = "The task could not be verified after creation.";
+                return false;
+            }
+            return true;
         }
 
         public static bool Uninstall()
         {
-            return Run("schtasks.exe", "/Delete /F /TN \"" + TaskName + "\"") == 0;
+            LastError = "";
+            return Run("schtasks.exe", "/Delete /F /TN \"" + TaskName + "\"", true) == 0;
         }
 
-        private static int Run(string file, string args)
+        private static int Run(string file, string args, bool captureError)
         {
             try
             {
@@ -1375,14 +1385,21 @@ namespace TouchMonitor
                 psi.RedirectStandardError = true;
                 using (Process p = Process.Start(psi))
                 {
-                    p.StandardOutput.ReadToEnd();
-                    p.StandardError.ReadToEnd();
+                    string output = p.StandardOutput.ReadToEnd();
+                    string error = p.StandardError.ReadToEnd();
                     p.WaitForExit(10000);
-                    return p.HasExited ? p.ExitCode : -1;
+                    int code = p.HasExited ? p.ExitCode : -1;
+                    if (captureError && code != 0)
+                    {
+                        string message = (error + " " + output).Trim();
+                        if (message.Length > 0) LastError = message;
+                    }
+                    return code;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                if (captureError) LastError = ex.Message;
                 return -1;
             }
         }
@@ -1559,10 +1576,33 @@ namespace TouchMonitor
             if (FocusGuard.NoActivateEnabled) FocusGuard.SweepNow();
         }
 
+        private static Icon appIcon;
+
+        private static Icon GetAppIcon()
+        {
+            if (appIcon != null) return appIcon;
+            try
+            {
+                using (Stream stream = System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream("AppIcon.ico"))
+                {
+                    if (stream != null)
+                    {
+                        appIcon = new Icon(stream);
+                        return appIcon;
+                    }
+                }
+            }
+            catch
+            {
+            }
+            appIcon = SystemIcons.Application;
+            return appIcon;
+        }
+
         private void UpdateTray()
         {
             tray.Text = "Touch Monitor - " + (HookEngine.Enabled ? "active" : "paused");
-            tray.Icon = HookEngine.Enabled ? SystemIcons.Shield : SystemIcons.Application;
+            tray.Icon = GetAppIcon();
         }
 
         private void OnToggleEnabled(object sender, EventArgs e)
@@ -1637,15 +1677,69 @@ namespace TouchMonitor
         private void OnToggleStartup(object sender, EventArgs e)
         {
             bool installed = TaskHelper.IsInstalled();
-            bool ok = installed ? TaskHelper.Uninstall() : TaskHelper.Install();
-            if (!ok)
+            bool ok;
+            if (IsElevated())
             {
-                tray.ShowBalloonTip(4000, "Touch Monitor", "Could not update the startup task. Run install-autostart.ps1 as administrator.", ToolTipIcon.Warning);
-                itemStartup.Checked = TaskHelper.IsInstalled();
+                ok = installed ? TaskHelper.Uninstall() : TaskHelper.Install();
+            }
+            else
+            {
+                ok = RunElevatedAutostart(installed ? "--uninstall-autostart" : "--install-autostart");
+            }
+            bool nowInstalled = TaskHelper.IsInstalled();
+            itemStartup.Checked = nowInstalled;
+            if (!ok || nowInstalled == installed)
+            {
+                string reason = TaskHelper.LastError;
+                if (string.IsNullOrEmpty(reason))
+                {
+                    reason = IsElevated()
+                        ? "Run the app as administrator or use install-autostart.ps1."
+                        : "Administrator approval is required (and was not granted).";
+                }
+                tray.ShowBalloonTip(5000, "Touch Monitor", "Could not update the startup task: " + reason, ToolTipIcon.Warning);
                 return;
             }
-            itemStartup.Checked = !installed;
-            tray.ShowBalloonTip(3000, "Touch Monitor", itemStartup.Checked ? "Will start with Windows." : "Autostart disabled.", ToolTipIcon.Info);
+            tray.ShowBalloonTip(3000, "Touch Monitor", nowInstalled ? "Will start with Windows (elevated)." : "Autostart disabled.", ToolTipIcon.Info);
+        }
+
+        private static bool IsElevated()
+        {
+            try
+            {
+                System.Security.Principal.WindowsIdentity identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+                System.Security.Principal.WindowsPrincipal principal = new System.Security.Principal.WindowsPrincipal(identity);
+                return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private bool RunElevatedAutostart(string argument)
+        {
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo(Application.ExecutablePath, argument);
+                psi.UseShellExecute = true;
+                psi.Verb = "runas";
+                using (Process p = Process.Start(psi))
+                {
+                    if (p == null) return false;
+                    p.WaitForExit(20000);
+                    return true;
+                }
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                return false;
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Write("elevated autostart helper failed: " + ex.Message);
+                return false;
+            }
         }
 
         private void OnOpenTabletPcSettings(object sender, EventArgs e)
@@ -1736,6 +1830,16 @@ namespace TouchMonitor
         {
             foreach (string argument in args)
             {
+                if (string.Equals(argument, "--install-autostart", StringComparison.OrdinalIgnoreCase))
+                {
+                    Environment.ExitCode = TaskHelper.Install() ? 0 : 1;
+                    return;
+                }
+                if (string.Equals(argument, "--uninstall-autostart", StringComparison.OrdinalIgnoreCase))
+                {
+                    Environment.ExitCode = TaskHelper.Uninstall() ? 0 : 1;
+                    return;
+                }
                 if (string.Equals(argument, "--debug", StringComparison.OrdinalIgnoreCase))
                 {
                     DebugLog.Enabled = true;

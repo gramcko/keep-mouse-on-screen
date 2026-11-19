@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $src = Join-Path $root 'src\TouchMonitor.cs'
+$icon = Join-Path $root 'assets\touchmonitor.ico'
 $outDir = Join-Path $root 'dist'
 $out = Join-Path $outDir 'TouchMonitor.exe'
 
@@ -21,7 +22,13 @@ $refs = @(
     '/r:System.Windows.Forms.dll'
 )
 
-& $csc /nologo /target:winexe /optimize+ /platform:anycpu "/out:$out" $refs $src
+$iconArgs = @()
+if (Test-Path -LiteralPath $icon) {
+    $iconArgs += "/win32icon:$icon"
+    $iconArgs += "/resource:$icon,AppIcon.ico"
+}
+
+& $csc /nologo /target:winexe /optimize+ /platform:anycpu "/out:$out" $refs $iconArgs $src
 if ($LASTEXITCODE -ne 0) { throw "Build failed with exit code $LASTEXITCODE" }
 
 Write-Host "Built: $out"
